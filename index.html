@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Alphabet Snake Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            flex-direction: column;
+        }
+        #gameCanvas {
+            border: 2px solid #fff;
+            background-color: #000; /* רקע הקנבס */
+        }
+        #startScreen, #endScreen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #startButton, #restartButton {
+            padding: 10px 20px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1 style="color: white; font-size: 60px;">Snake</h1>
+        <button id="startButton">משחק חדש</button>
+    </div>
+    <div id="endScreen" style="display: none;">
+        <h1 style="color: white; font-size: 60px;">Game Over</h1>
+        <button id="restartButton">משחק חדש</button>
+    </div>
+    <canvas id="gameCanvas" style="display: none;"></canvas>
+    <audio id="gameMusic" loop>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="eatSound">
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="gameOverSound">
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" type="audio/mpeg">
+    </audio>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameMusic = document.getElementById('gameMusic');
+        const eatSound = document.getElementById('eatSound');
+        const gameOverSound = document.getElementById('gameOverSound');
+
+        let snake, foods, dx, dy, score, currentLetterIndex;
+        let speed = 100;
+        let isAccelerating = false;
+        const alphabet = 'אבגדהווזחטיכלמנסעפצקרשת';
+
+        document.getElementById('startButton').addEventListener('click', () => {
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameCanvas').style.display = 'block';
+            startGame();
+        });
+
+        document.getElementById('restartButton').addEventListener('click', () => {
+            document.getElementById('endScreen').style.display = 'none';
+            document.getElementById('gameCanvas').style.display = 'block';
+            startGame();
+        });
+
+        function startGame() {
+            gameMusic.pause();
+            gameMusic.currentTime = 0;
+            gameMusic.play();
+            initGame();
+            gameLoop();
+        }
+
+        function initGame() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            snake = [{x: Math.floor(canvas.width / 2 / 20) * 20, y: Math.floor(canvas.height / 2 / 20) * 20}];
+            foods = [{x: 0, y: 0, letter: ''}, {x: 0, y: 0, letter: ''}];
+            dx = 20;
+            dy = 0;
+            score = 0;
+            currentLetterIndex = 0;
+            generateFoods();
+            document.addEventListener('keydown', handleKeyDown);
+            document.addEventListener('keyup', handleKeyUp);
+            window.addEventListener('resize', () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+        }
+
+        function handleKeyDown(e) {
+            switch(e.key) {
+                case 'ArrowUp':
+                    if (dy === 0) { dx = 0; dy = -20; }
+                    break;
+                case 'ArrowDown':
+                    if (dy === 0) { dx = 0; dy = 20; }
+                    break;
+                case 'ArrowLeft':
+                    if (dx === 0) { dx = -20; dy = 0; }
+                    break;
+                case 'ArrowRight':
+                    if (dx === 0) { dx = 20; dy = 0; }
+                    break;
+                case ' ':
+                    isAccelerating = true;
+                    break;
+            }
+        }
+
+        function handleKeyUp(e) {
+            if (e.key === ' ') {
+                isAccelerating = false;
+            }
+        }
+
+        function generateFoods() {
+            const correctLetter = alphabet[currentLetterIndex];
+            let randomLetter;
+            do {
+                randomLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
+            } while (randomLetter === correctLetter);
+
+            const padding = 40; // Padding from edges
+            const maxX = canvas.width - 20 - padding;
+            const maxY = canvas.height - 20 - padding;
+
+            foods[0] = {
+                x: Math.floor(Math.random() * (maxX / 20)) * 20 + padding,
+                y: Math.floor(Math.random() * (maxY / 20)) * 20 + padding,
+                letter: correctLetter
+            };
+
+            do {
+                foods[1] = {
+                    x: Math.floor(Math.random() * (maxX / 20)) * 20 + padding,
+                    y: Math.floor(Math.random() * (maxY / 20)) * 20 + padding,
+                    letter: randomLetter
+                };
+            } while (foods[1].x === foods[0].x && foods[1].y === foods[0].y);
+        }
+
+        function drawSnake() {
+            snake.forEach((segment, index) => {
+                ctx.fillStyle = index === 0 ? '#00FF00' : '#00FF00';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(segment.x + 10, segment.y + 10, 10, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+                
+                if (index === 0) {
+                    ctx.fillStyle = 'black';
+                    ctx.beginPath();
+                    ctx.arc(segment.x + 6, segment.y + 7, 2, 0, 2 * Math.PI); // Eye left
+                    ctx.arc(segment.x + 14, segment.y + 7, 2, 0, 2 * Math.PI); // Eye right
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(segment.x + 10, segment.y + 12, 5, 0, Math.PI); // Smile
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function drawFoods() {
+            foods.forEach(food => {
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(food.x + 10, food.y + 10, 15, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(food.letter, food.x + 10, food.y + 10);
+            });
+        }
+
+        function moveSnake() {
+            const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+            snake.unshift(head);
+
+            const eatenFood = foods.find(food => head.x === food.x && head.y === food.y);
+            if (eatenFood) {
+                if (eatenFood.letter === alphabet[currentLetterIndex]) {
+                    score++;
+                    currentLetterIndex++;
+                    eatSound.currentTime = 0;
+                    eatSound.play();
+                    if (currentLetterIndex >= alphabet.length) {
+                        alert('Congratulations! You completed the alphabet!');
+                        resetGame();
+                    } else {
+                        generateFoods();
+                        growSnake();
+                    }
+                } else {
+                    gameOver();
+                }
+            } else {
+                snake.pop();
+            }
+        }
+
+        function growSnake() {
+            const tail = snake[snake.length - 1];
+            snake.push({ x: tail.x, y: tail.y });
+        }
+
+        function checkCollision() {
+            const head = snake[0];
+            if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+                return true;
+            }
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function gameOver() {
+            gameMusic.pause();
+            gameOverSound.play();
+            document.getElementById('gameCanvas').style.display = 'none';
+            document.getElementById('endScreen').style.display = 'flex';
+        }
+
+        function resetGame() {
+            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('keyup', handleKeyUp);
+            startGame();
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            moveSnake();
+            if (checkCollision()) {
+                gameOver();
+                return;
+            }
+            drawSnake();
+            drawFoods();
+            ctx.fillStyle = 'white';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('Score: ' + score, 10, 30);
+            ctx.fillText('Next Letter: ' + alphabet[currentLetterIndex], 10, 60);
+            
+            setTimeout(gameLoop, isAccelerating ? speed / 2 : speed);
+        }
+    </script>
+</body>
+</html>
